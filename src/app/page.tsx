@@ -90,56 +90,91 @@ export default function Home() {
       }
       const ipData = await ipResponse.json();
 
-      // Measure ping
+      // Measure ping (5 times)
       setProgress(10);
       const pings = [];
       for (let i = 0; i < 5; i++) {
-        pings.push(await measurePing());
+        try {
+          pings.push(await measurePing());
+          setProgress(10 + (i * 4));
+        } catch (error) {
+          console.error(`Ping test ${i + 1} failed:`, error);
+        }
       }
+      
+      if (pings.length === 0) {
+        throw new Error('All ping tests failed. Please check your connection.');
+      }
+      
       const avgPing = pings.reduce((a, b) => a + b, 0) / pings.length;
       const jitter = Math.max(...pings) - Math.min(...pings);
 
-      // Measure download
+      // Measure download (5 times)
       setProgress(30);
-      let totalSpeed = 0;
-      for (let i = 0; i < 3; i++) {
-        const speed = await measureDownload();
-        totalSpeed += speed;
-        setCurrentSpeed(speed);
-        setProgress(40 + i * 10);
+      let downloadSpeeds = [];
+      for (let i = 0; i < 5; i++) {
+        try {
+          const speed = await measureDownload();
+          downloadSpeeds.push(speed);
+          setCurrentSpeed(speed);
+          setProgress(30 + (i * 8));
+        } catch (error) {
+          console.error(`Download test ${i + 1} failed:`, error);
+        }
       }
-      const avgDownload = totalSpeed / 3;
+      
+      if (downloadSpeeds.length === 0) {
+        throw new Error('All download tests failed. Please check your connection.');
+      }
+      
+      // Remove highest and lowest values for more accurate average
+      downloadSpeeds.sort((a, b) => a - b);
+      downloadSpeeds = downloadSpeeds.slice(1, -1);
+      const avgDownload = downloadSpeeds.reduce((a, b) => a + b, 0) / downloadSpeeds.length;
 
-      // Measure upload
+      // Measure upload (5 times)
       setProgress(70);
-      totalSpeed = 0;
-      for (let i = 0; i < 3; i++) {
-        const speed = await measureUpload();
-        totalSpeed += speed;
-        setCurrentSpeed(speed);
-        setProgress(80 + i * 10);
+      let uploadSpeeds = [];
+      for (let i = 0; i < 5; i++) {
+        try {
+          const speed = await measureUpload();
+          uploadSpeeds.push(speed);
+          setCurrentSpeed(speed);
+          setProgress(70 + (i * 6));
+        } catch (error) {
+          console.error(`Upload test ${i + 1} failed:`, error);
+        }
       }
-      const avgUpload = totalSpeed / 3;
+      
+      if (uploadSpeeds.length === 0) {
+        throw new Error('All upload tests failed. Please check your connection.');
+      }
+      
+      // Remove highest and lowest values for more accurate average
+      uploadSpeeds.sort((a, b) => a - b);
+      uploadSpeeds = uploadSpeeds.slice(1, -1);
+      const avgUpload = uploadSpeeds.reduce((a, b) => a + b, 0) / uploadSpeeds.length;
 
+      // Round values for cleaner display
       setResults({
-        download: avgDownload,
-        upload: avgUpload,
-        ping: avgPing,
+        download: Math.round(avgDownload * 100) / 100,
+        upload: Math.round(avgUpload * 100) / 100,
+        ping: Math.round(avgPing),
         ip: ipData.ip,
         location: {
           city: ipData.city || 'Unknown',
           country: ipData.country || 'Unknown',
           region: ipData.region || 'Unknown',
         },
-        jitter: jitter,
-        latency: avgPing,
+        jitter: Math.round(jitter * 100) / 100,
+        latency: Math.round(avgPing),
         isp: ipData.isp || 'Unknown',
       });
 
       localStorage.setItem('lastTest', JSON.stringify(results));
     } catch (error) {
       console.error('Test failed:', error);
-      setError('Failed to complete the speed test. Please try again.');
+      setError(error instanceof Error ? error.message : 'Failed to complete the speed test. Please try again.');
     } finally {
       setTesting(false);
       setProgress(100);
