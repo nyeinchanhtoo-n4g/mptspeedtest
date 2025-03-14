@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 export async function GET() {
   // Generate a random buffer of 1MB
-  const size = 102400 * 1024; // 1MB
+  const size = 1024 * 1024; // 1MB
   const buffer = Buffer.alloc(size);
 
   return new NextResponse(buffer, {
